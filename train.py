@@ -3,7 +3,8 @@ import torch
 import torch.nn as nn
 from model import Transformer
 from config import get_cfg_defaults
-
+import tiktoken
+enc = tiktoken.get_encoding("gpt2")
 
 device = (
     "cuda"
@@ -43,7 +44,7 @@ def train(dataloader, model, loss_fn, optimizer):
     for batch, (X, y) in enumerate(dataloader):
         X, y = X.to(device), y.to(device)
         pred = model(X)
-        loss = loss_fn(pred, y)
+        loss = loss_fn(pred.view(-1, enc.n_vocab), y.view(-1))
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
@@ -61,7 +62,7 @@ def validate(dataloader, model, loss_fn):
         for X, y in dataloader:
             X, y = X.to(device), y.to(device)
             pred = model(X)
-            test_loss += loss_fn(pred, y).item()
+            test_loss += loss_fn(pred.view(-1, enc.n_vocab), y.view(-1)).item()
     test_loss /= num_batches
     print(f"Avg loss: {test_loss:>8f} \n")
 
