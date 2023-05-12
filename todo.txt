@@ -1,0 +1,4 @@
+1. download wikipedi dataset, and use tiktoken to encode the dataset
+2. model.py: attention, transformer, gpt
+3. train.py: load the dataset, prepare X,y, call model.train()
+3. generate.py: load the checkpoint and the input text, do the encoding and run model.generate() then do the decoding
