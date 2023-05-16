@@ -33,7 +33,7 @@ class DataLoader:
             ys.append(self.fp[rand_idx[i]+1:rand_idx[i] + self.context_length+1])
         X = np.stack(Xs)
         y = np.stack(ys)
-        return torch.from_numpy(X), torch.from_numpy(y)
+        return torch.from_numpy(X), torch.from_numpy(y).to(torch.int64)
 
     def __len__(self):
         return int(self.length / self.batch_size)
@@ -91,7 +91,7 @@ if __name__ == '__main__':
         device=device
     ).to(device)
 
-#    summary(model, input_data=torch.ones((128, 1024)).int().to(device))
+    summary(model, input_data=torch.ones((cfg.TRAIN.BATCH_SIZE, cfg.TRAIN.CONTEXT_SIZE)).int().to(device))
 
     loss_fn = nn.CrossEntropyLoss()
     optimizer = model.get_optimizer()
