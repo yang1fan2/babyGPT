@@ -18,13 +18,13 @@ print(f"Using {device} device")
 
 class DataLoader:
     def __init__(self, filename, batch_size, context_length, is_train):
-        self.is_train
+        self.is_train = is_train
         self.batch_size = batch_size
         self.context_length = context_length
-        self.fp = np.memmap(filename, dtype='uint16', mode='r')
+        self.fp = np.memmap(filename, dtype='uint16', mode='r').astype(np.int32)
         self.length = np.shape(self.fp)[0]
 
-    def __getitem__(self):
+    def __getitem__(self, idx):
         rand_idx = np.random.randint(self.length - self.context_length - 1, size = self.batch_size)
         Xs, ys = [], []
         for i in range(self.batch_size):
@@ -47,6 +47,7 @@ def train(dataloader, model, loss_fn, optimizer):
         loss = loss_fn(pred.view(-1, enc.n_vocab), y.view(-1))
         optimizer.zero_grad()
         loss.backward()
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1)
         optimizer.step()
 
         if batch % 100 == 0:
@@ -80,11 +81,17 @@ if __name__ == '__main__':
         print(f"Shape of y: {y.shape}")
         break
 
-    model = Transformer().to(device)
-    print(model)
+    model = Transformer(
+        n_layers=cfg.TRAIN.N_LAYERS,
+        n_head=cfg.TRAIN.N_HEAD,
+        d_model=cfg.TRAIN.D_MODEL,
+        n_vocab=enc.n_vocab,
+        context_size=cfg.TRAIN.CONTEXT_SIZE,
+    ).to(device)
+    #print(model)
 
     loss_fn = nn.CrossEntropyLoss()
-    optimizer = torch.optim.AdamW()
+    optimizer = model.get_optimizer()
 
     for t in range(cfg.TRAIN.N_EPOCH):
         print(f"Epoch {t+1}\n-------------------------------")
