@@ -10,7 +10,7 @@ _C.TRAIN.BATCH_SIZE = 128
 # The all important scales for the stuff
 _C.TRAIN.CONTEXT_SIZE = 1024
 _C.TRAIN.N_LAYERS = 3
-_C.TRAIN.N_HEAD = 3
+_C.TRAIN.N_HEAD = 4
 _C.TRAIN.D_MODEL = 128
 _C.TRAIN.N_EPOCH = 1
 

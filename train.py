@@ -4,6 +4,7 @@ import torch.nn as nn
 from model import Transformer
 from config import get_cfg_defaults
 import tiktoken
+from torchinfo import summary
 enc = tiktoken.get_encoding("gpt2")
 
 device = (
@@ -87,8 +88,10 @@ if __name__ == '__main__':
         d_model=cfg.TRAIN.D_MODEL,
         n_vocab=enc.n_vocab,
         context_size=cfg.TRAIN.CONTEXT_SIZE,
+        device=device
     ).to(device)
-    #print(model)
+
+#    summary(model, input_data=torch.ones((128, 1024)).int().to(device))
 
     loss_fn = nn.CrossEntropyLoss()
     optimizer = model.get_optimizer()
