@@ -41,6 +41,7 @@ class DataLoader:
 
 def train(dataloader, model, loss_fn, optimizer):
     size = len(dataloader)
+    print(size)
     model.train()
     for batch, (X, y) in enumerate(dataloader):
         X, y = X.to(device), y.to(device)
@@ -52,8 +53,10 @@ def train(dataloader, model, loss_fn, optimizer):
         optimizer.step()
 
         if batch % 100 == 0:
-            loss, current = loss.item(), (batch + 1) * len(X)
-            print(f"loss: {loss:>7f}  [{current:>5d}/{size:>5d}]") 
+            loss, current = loss.item(), (batch + 1)
+            print(f"loss: {loss:>7f}  [{current:>5d}/{size:>5d}]")
+        if batch > size:
+            break
 
 
 def validate(dataloader, model, loss_fn):
@@ -61,10 +64,12 @@ def validate(dataloader, model, loss_fn):
     model.eval()
     test_loss = 0
     with torch.no_grad():
-        for X, y in dataloader:
+        for i, (X, y) in enumerate(dataloader):
             X, y = X.to(device), y.to(device)
             pred = model(X)
             test_loss += loss_fn(pred.view(-1, pred.size(-1)), y.view(-1)).item()
+            if i > num_batches:
+                break
     test_loss /= num_batches
     print(f"Avg loss: {test_loss:>8f} \n")
 

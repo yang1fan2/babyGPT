@@ -16,3 +16,4 @@ print(f"Using {device} device")
 
 model = Transformer().to(device)
 model.load_state_dict(torch.load("model.pth"))
+
