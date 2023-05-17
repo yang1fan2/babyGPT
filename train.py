@@ -45,7 +45,7 @@ def train(dataloader, model, loss_fn, optimizer):
     for batch, (X, y) in enumerate(dataloader):
         X, y = X.to(device), y.to(device)
         pred = model(X)
-        loss = loss_fn(pred.view(-1, enc.n_vocab), y.view(-1))
+        loss = loss_fn(pred.view(-1, pred.size(-1)), y.view(-1))
         optimizer.zero_grad()
         loss.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1)
@@ -64,7 +64,7 @@ def validate(dataloader, model, loss_fn):
         for X, y in dataloader:
             X, y = X.to(device), y.to(device)
             pred = model(X)
-            test_loss += loss_fn(pred.view(-1, enc.n_vocab), y.view(-1)).item()
+            test_loss += loss_fn(pred.view(-1, pred.size(-1)), y.view(-1)).item()
     test_loss /= num_batches
     print(f"Avg loss: {test_loss:>8f} \n")
 

@@ -3,8 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import math
 import numpy as np
-#TODO
-# 1. generate
+
 
 class GELU(nn.Module):
     def __init__(self):
@@ -91,7 +90,6 @@ class Transformer(nn.Module):
             x = l(x)
         x = self.layer_norm(x)
         x = self.softmax_proj(x) # [B, C, vocab]
-        x = F.softmax(x, dim=-1)
         return x
 
     def get_optimizer(self):
