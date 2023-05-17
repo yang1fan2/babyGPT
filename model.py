@@ -115,7 +115,7 @@ class Transformer(nn.Module):
             {"params": [key2parameter[k] for k in set(decay)], "weight_decay":0.1},
             {"params": [key2parameter[k] for k in set(non_decay)], "weight_decay":0}
         ]
-        return torch.optim.AdamW(parameter_groups, betas=(0.9, 0.95), lr=1e-3)
+        return torch.optim.AdamW(parameter_groups)#, betas=(0.9, 0.95), lr=1e-3)
 
     def init_weights(m):
         if isinstance(m, nn.Linear):
