@@ -4,7 +4,6 @@ import torch.nn.functional as F
 import math
 import numpy as np
 
-
 class GELU(nn.Module):
     def __init__(self):
         super().__init__()
@@ -65,7 +64,7 @@ class TransformerBlock(nn.Module):
 
 
 class Transformer(nn.Module):
-    def __init__(self, n_layers, n_head, d_model, n_vocab, context_size, device):
+    def __init__(self, n_layers, n_head, d_model, n_vocab, context_size, device, eot_token):
         super().__init__()
         # position embedding
         self.blocks = nn.ModuleList([TransformerBlock(n_head, d_model, device) for i in range(n_layers)])
@@ -73,8 +72,10 @@ class Transformer(nn.Module):
         self.position_model = nn.Embedding(context_size, d_model)
         self.softmax_proj = nn.Linear(d_model, n_vocab)
         self.layer_norm = nn.LayerNorm(d_model)
-        self.position = torch.arange(0, context_size).unsqueeze(1).int().to(device)
+        self.device = device
+        self.eot_token = eot_token
         self.apply(Transformer.init_weights)
+        self.context_size = context_size
         for name, param in self.named_parameters():
             # scale the residual weight by sqrt(N)
             if 'residual_proj' in name and 'weight' in name:
@@ -83,10 +84,11 @@ class Transformer(nn.Module):
 
     def forward(self, x): # [B, C]
         x = self.vocab_embed(x) # [B, C, D]
+        position = torch.arange(0, x.size(1)).unsqueeze(1).int().to(self.device)
         pos = self.position_model(self.position).view((1, x.size(1), x.size(2))) # [1, C, D]
         x = x + pos # [B, C, D]
         # position
-        for i, l in enumerate(self.blocks):
+        for _, l in enumerate(self.blocks):
             x = l(x)
         x = self.layer_norm(x)
         x = self.softmax_proj(x) # [B, C, vocab]
@@ -125,5 +127,19 @@ class Transformer(nn.Module):
             nn.init.constant_(m.weight, 1)
             nn.init.constant_(m.bias, 0)
 
-    def generate(self, x):
-        pass
+    def generate(self, X, temperature=0.7, max_len=256):
+        max_len = min(max_len, self.context_size)
+        if len(X) > max_len:
+            X = X[-max_len:]
+        X = torch.from_numpy(X).to(self.device)
+        X = X.view(1, X.size(-1))
+        while X.size(1) < max_len:
+            pred = self.forward(X)[:, -1, :]
+            pred = pred.view(pred.size(-1)) # [vocab]
+            probs = F.softmax(pred / temperature, dim=0)
+            next_word = torch.multinomial(probs, 1)
+            if next_word.item() == self.eot_token:
+                break
+            next_word = next_word.unsqueeze(0)
+            X = torch.cat((X, next_word), dim=1)
+        return X

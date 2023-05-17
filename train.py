@@ -41,7 +41,6 @@ class DataLoader:
 
 def train(dataloader, model, loss_fn, optimizer):
     size = len(dataloader)
-    print(size)
     model.train()
     for batch, (X, y) in enumerate(dataloader):
         X, y = X.to(device), y.to(device)
@@ -93,7 +92,8 @@ if __name__ == '__main__':
         d_model=cfg.TRAIN.D_MODEL,
         n_vocab=enc.n_vocab,
         context_size=cfg.TRAIN.CONTEXT_SIZE,
-        device=device
+        device=device,
+        eot_token=enc.eot_token,
     ).to(device)
 
     summary(model, input_data=torch.ones((cfg.TRAIN.BATCH_SIZE, cfg.TRAIN.CONTEXT_SIZE)).int().to(device))
