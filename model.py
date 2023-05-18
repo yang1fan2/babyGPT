@@ -14,7 +14,7 @@ class GELU(nn.Module):
         return x * cdf
 
 class MultiHeadAttention(nn.Module):
-    def __init__(self, n_head, d_model, device):
+    def __init__(self, n_head, d_model, context_size, device):
         super().__init__()
         self.n_head = n_head
         self.d_model = d_model
@@ -23,7 +23,9 @@ class MultiHeadAttention(nn.Module):
         self.residual_proj = nn.Linear(d_model, d_model)
         self.att_dropout = nn.Dropout(0.1)
         self.residual_dropout = nn.Dropout(0.1)
-        self.device = device    
+        self.device = device
+        mask = torch.tril(torch.ones(context_size, context_size)).to(self.device).view(1,1,context_size,context_size)
+        self.register_buffer("mask", mask)
 
     def forward(self, x): #  x = [B, C, D]
         B = x.size(dim=0)
@@ -37,8 +39,8 @@ class MultiHeadAttention(nn.Module):
         V = V.view(B, C, self.n_head, self.head_embed).transpose(1, 2)
         scale = 1.0 / math.sqrt(self.head_embed)
         att = (Q @ K.transpose(2, 3)) * scale  # [B, n_head, C, C]
-        mask = torch.tril(torch.ones(C, C)).to(self.device).view(1,1,C,C)
-        att = att.masked_fill(mask[:,:,:C, :C] == 0, float('-inf'))
+
+        att = att.masked_fill(self.mask[:,:,:C, :C] == 0, float('-inf'))
         att = self.att_dropout(F.softmax(att, dim=3))
         output = att @ V # [B, n_head, C, dk]
         output = output.transpose(1, 2).reshape(B, C, D) # [B, C, D]
@@ -46,11 +48,11 @@ class MultiHeadAttention(nn.Module):
         return output
 
 class TransformerBlock(nn.Module):
-    def __init__(self, n_head, d_model, device):
+    def __init__(self, n_head, d_model, context_size, device):
         super().__init__()
         self.layer_norm1 = nn.LayerNorm(d_model)
         self.layer_norm2 = nn.LayerNorm(d_model)
-        self.attention = MultiHeadAttention(n_head, d_model, device)
+        self.attention = MultiHeadAttention(n_head, d_model, context_size, device)
         self.linear1 = nn.Linear(d_model, d_model*4)
         self.residual_proj = nn.Linear(d_model*4, d_model)
         self.dropout = nn.Dropout(0.1)
@@ -68,7 +70,7 @@ class Transformer(nn.Module):
     def __init__(self, n_layers, n_head, d_model, n_vocab, context_size, device, eot_token):
         super().__init__()
         # position embedding
-        self.blocks = nn.ModuleList([TransformerBlock(n_head, d_model, device) for i in range(n_layers)])
+        self.blocks = nn.ModuleList([TransformerBlock(n_head, d_model, context_size, device) for i in range(n_layers)])
         self.vocab_embed = nn.Embedding(n_vocab, d_model)
         self.position_model = nn.Embedding(context_size, d_model)
         self.softmax_proj = nn.Linear(d_model, n_vocab)
