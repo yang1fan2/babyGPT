@@ -146,8 +146,8 @@ class Transformer(nn.Module):
                     next_word = torch.multinomial(probs, 1)
                 else:
                     _, next_word = torch.topk(probs, k=1, dim=-1)
-                if next_word.item() == self.eot_token:
-                    break
+                # if next_word.item() == self.eot_token:
+                #     break
                 next_word = next_word.unsqueeze(0)
                 X = torch.cat((X, next_word), dim=1)
         return X.tolist()[0]
