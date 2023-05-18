@@ -98,7 +98,7 @@ if __name__ == '__main__':
 
     summary(model, input_data=torch.ones((cfg.TRAIN.BATCH_SIZE, cfg.TRAIN.CONTEXT_SIZE)).int().to(device))
 
-    loss_fn = nn.CrossEntropyLoss()
+    loss_fn = nn.CrossEntropyLoss(ignore_index=-1)
     optimizer = model.get_optimizer()
 
     for t in range(cfg.TRAIN.N_EPOCH):

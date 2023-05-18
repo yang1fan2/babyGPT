@@ -22,6 +22,7 @@ class MultiHeadAttention(nn.Module):
         self.att_proj = nn.Linear(d_model, 3*d_model)
         self.residual_proj = nn.Linear(d_model, d_model)
         self.att_dropout = nn.Dropout(0.1)
+        self.residual_dropout = nn.Dropout(0.1)
         self.device = device    
 
     def forward(self, x): #  x = [B, C, D]
@@ -36,12 +37,12 @@ class MultiHeadAttention(nn.Module):
         V = V.view(B, C, self.n_head, self.head_embed).transpose(1, 2)
         scale = 1.0 / math.sqrt(self.head_embed)
         att = (Q @ K.transpose(2, 3)) * scale  # [B, n_head, C, C]
-        mask = torch.tril(torch.ones(C, C), diagonal=-1).to(self.device)  # TODO register as buffer
-        mask = mask.unsqueeze(0).unsqueeze(0).expand(B, self.n_head, C, C) # TODO optimize this
-        att = F.softmax(att * mask, dim=3)
+        mask = torch.tril(torch.ones(C, C)).to(self.device).view(1,1,C,C)
+        att = att.masked_fill(mask[:,:,:C, :C] == 0, float('-inf'))
+        att = self.att_dropout(F.softmax(att, dim=3))
         output = att @ V # [B, n_head, C, dk]
         output = output.transpose(1, 2).reshape(B, C, D) # [B, C, D]
-        output = self.att_dropout(self.residual_proj(output))
+        output = self.residual_dropout(self.residual_proj(output))
         return output
 
 class TransformerBlock(nn.Module):
@@ -59,8 +60,8 @@ class TransformerBlock(nn.Module):
         x = self.layer_norm1(x)
         x = x + self.attention(x)
         x = self.layer_norm2(x)
-        x = x + self.residual_proj(self.gelu(self.linear1(x)))
-        return self.dropout(x)
+        x = x + self.dropout(self.residual_proj(self.gelu(self.linear1(x))))
+        return x
 
 
 class Transformer(nn.Module):
@@ -72,21 +73,22 @@ class Transformer(nn.Module):
         self.position_model = nn.Embedding(context_size, d_model)
         self.softmax_proj = nn.Linear(d_model, n_vocab)
         self.layer_norm = nn.LayerNorm(d_model)
+        self.dropout = nn.Dropout(0.1)
         self.device = device
         self.eot_token = eot_token
-        self.apply(Transformer.init_weights)
         self.context_size = context_size
+
+        self.apply(Transformer.init_weights)        
         for name, param in self.named_parameters():
             # scale the residual weight by sqrt(N)
             if 'residual_proj' in name and 'weight' in name:
-                print("scale the weight by sqrt(n_layer): %s" % name)
-                param = param / math.sqrt(n_layers)
+                torch.nn.init.normal_(param, mean=0.0, std=0.02/math.sqrt(2 * n_layers))
 
     def forward(self, x): # [B, C]
         x = self.vocab_embed(x) # [B, C, D]
         position = torch.arange(0, x.size(1)).unsqueeze(1).int().to(self.device)
         pos = self.position_model(position).view((1, x.size(1), x.size(2))) # [1, C, D]
-        x = x + pos # [B, C, D]
+        x = self.dropout(x + pos) # [B, C, D]
         # position
         for _, l in enumerate(self.blocks):
             x = l(x)
@@ -127,7 +129,7 @@ class Transformer(nn.Module):
             nn.init.constant_(m.weight, 1)
             nn.init.constant_(m.bias, 0)
 
-    def generate(self, X, temperature=0.95, max_len=256):
+    def generate(self, X, temperature=1.0, max_len=256, sample=False):
         max_len = min(max_len, self.context_size)
         if len(X) > max_len:
             X = X[-max_len:]
@@ -138,7 +140,10 @@ class Transformer(nn.Module):
                 pred = self.forward(X)[:, -1, :]
                 pred = pred.view(pred.size(-1)) 
                 probs = F.softmax(pred / temperature, dim=0)
-                next_word = torch.multinomial(probs, 1)
+                if sample:
+                    next_word = torch.multinomial(probs, 1)
+                else:
+                    _, next_word = torch.topk(probs, k=1, dim=-1)
                 if next_word.item() == self.eot_token:
                     break
                 next_word = next_word.unsqueeze(0)
