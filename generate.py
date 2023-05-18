@@ -35,7 +35,7 @@ if __name__ == '__main__':
         text = input("Enter prompt: ")
         if text == "exit":
             break
-        X = enc.encode(text)
+        X = np.array(enc.encode(text))
         y = model.generate(X)
-        enc.decode(y)
+        y = enc.decode(y)
         print(y)

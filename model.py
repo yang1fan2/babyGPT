@@ -85,7 +85,7 @@ class Transformer(nn.Module):
     def forward(self, x): # [B, C]
         x = self.vocab_embed(x) # [B, C, D]
         position = torch.arange(0, x.size(1)).unsqueeze(1).int().to(self.device)
-        pos = self.position_model(self.position).view((1, x.size(1), x.size(2))) # [1, C, D]
+        pos = self.position_model(position).view((1, x.size(1), x.size(2))) # [1, C, D]
         x = x + pos # [B, C, D]
         # position
         for _, l in enumerate(self.blocks):
@@ -127,19 +127,20 @@ class Transformer(nn.Module):
             nn.init.constant_(m.weight, 1)
             nn.init.constant_(m.bias, 0)
 
-    def generate(self, X, temperature=0.7, max_len=256):
+    def generate(self, X, temperature=0.95, max_len=256):
         max_len = min(max_len, self.context_size)
         if len(X) > max_len:
             X = X[-max_len:]
         X = torch.from_numpy(X).to(self.device)
         X = X.view(1, X.size(-1))
-        while X.size(1) < max_len:
-            pred = self.forward(X)[:, -1, :]
-            pred = pred.view(pred.size(-1)) # [vocab]
-            probs = F.softmax(pred / temperature, dim=0)
-            next_word = torch.multinomial(probs, 1)
-            if next_word.item() == self.eot_token:
-                break
-            next_word = next_word.unsqueeze(0)
-            X = torch.cat((X, next_word), dim=1)
-        return X
+        with torch.no_grad():
+            while X.size(1) < max_len:
+                pred = self.forward(X)[:, -1, :]
+                pred = pred.view(pred.size(-1)) 
+                probs = F.softmax(pred / temperature, dim=0)
+                next_word = torch.multinomial(probs, 1)
+                if next_word.item() == self.eot_token:
+                    break
+                next_word = next_word.unsqueeze(0)
+                X = torch.cat((X, next_word), dim=1)
+        return X.tolist()[0]
